@@ -3,16 +3,14 @@ import pandas as pd
 from shelfsense.hybrid import HybridRecommender
 
 
-class FakeALS:
-    def __init__(self, interactions: dict, recs: dict):
-        self.interactions = interactions
+class FakeAffinity:
+    def __init__(self, recs: dict):
         self.recs = recs
 
-    def n_interactions(self, customer_id):
-        return self.interactions.get(customer_id, 0)
-
-    def recommend(self, customer_id, k):
-        return self.recs.get(customer_id, [])[:k]
+    def recommend(self, customer_id, k, exclude=None):
+        exclude = exclude or set()
+        candidates = self.recs.get(customer_id, [])
+        return [a for a in candidates if a not in exclude][:k]
 
 
 class FakeContent:
@@ -37,30 +35,30 @@ def _train_df():
     )
 
 
-def test_warm_customer_uses_als():
-    als = FakeALS(interactions={"warm": 5}, recs={"warm": [("cf1", 0.9), ("cf2", 0.8)]})
-    hybrid = HybridRecommender(als, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
+def test_warm_customer_uses_affinity():
+    affinity = FakeAffinity(recs={"warm": ["cf1", "cf2"]})
+    hybrid = HybridRecommender(affinity, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
     recs = hybrid.recommend("warm", k=2, train=_train_df())
     assert recs == ["cf1", "cf2"]
 
 
-def test_warm_customer_tops_up_with_popularity_if_als_short():
-    als = FakeALS(interactions={"warm": 5}, recs={"warm": [("cf1", 0.9)]})
-    hybrid = HybridRecommender(als, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
+def test_warm_customer_tops_up_with_popularity_if_affinity_short():
+    affinity = FakeAffinity(recs={"warm": ["cf1"]})
+    hybrid = HybridRecommender(affinity, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
     recs = hybrid.recommend("warm", k=3, train=_train_df())
     assert recs[0] == "cf1"
     assert set(recs[1:]) <= {"pop1", "pop2", "pop3"}
 
 
 def test_cold_customer_with_history_uses_content():
-    als = FakeALS(interactions={"cold_with_history": 1}, recs={})
-    hybrid = HybridRecommender(als, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
+    affinity = FakeAffinity(recs={})
+    hybrid = HybridRecommender(affinity, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
     recs = hybrid.recommend("cold_with_history", k=1, train=_train_df())
     assert recs == ["similar-to-b1"]
 
 
 def test_fully_cold_customer_falls_back_to_popularity():
-    als = FakeALS(interactions={}, recs={})
-    hybrid = HybridRecommender(als, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
+    affinity = FakeAffinity(recs={})
+    hybrid = HybridRecommender(affinity, FakeContent(), FakePopularity(), min_interactions_for_cf=3)
     recs = hybrid.recommend("never-seen", k=2, train=_train_df())
     assert recs == ["pop1", "pop2"]

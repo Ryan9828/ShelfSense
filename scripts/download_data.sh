@@ -11,24 +11,28 @@
 #        echo <token> > ~/.kaggle/access_token && chmod 600 ~/.kaggle/access_token
 # This script doesn't check which one you used — it just calls `kaggle`, which will print
 # its own auth error (with these same options) if none of the above is set up yet.
-set -euo pipefail
+set -uo pipefail  # not -e: `kaggle` can exit non-zero on a benign warning even after a good download
 
 cd "$(dirname "$0")/.."
 
 mkdir -p data/raw
 cd data/raw
 
-kaggle competitions download -c h-and-m-personalized-fashion-recommendations \
-  -f articles.csv -p .
-kaggle competitions download -c h-and-m-personalized-fashion-recommendations \
-  -f customers.csv -p .
-kaggle competitions download -c h-and-m-personalized-fashion-recommendations \
-  -f transactions_train.csv -p .
-
-for f in articles.csv customers.csv transactions_train.csv; do
+fetch() {
+  local f="$1"
+  echo "Downloading $f..."
+  kaggle competitions download -c h-and-m-personalized-fashion-recommendations -f "$f" -p .
   if [ -f "$f.zip" ]; then
     unzip -o "$f.zip" && rm "$f.zip"
   fi
-done
+  if [ ! -f "$f" ]; then
+    echo "ERROR: $f did not end up in data/raw/ — check the kaggle output above." >&2
+    exit 1
+  fi
+}
+
+fetch articles.csv
+fetch customers.csv
+fetch transactions_train.csv
 
 echo "Downloaded to data/raw/. Next: python -m shelfsense.build_features"

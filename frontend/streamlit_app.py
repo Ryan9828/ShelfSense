@@ -1,6 +1,7 @@
-"""Storefront demo: pick a customer, compare hybrid recommendations against
-the popularity baseline side by side. This is the artifact to link in a
-resume/portfolio — it makes the A/B result tangible instead of a table of numbers.
+"""Storefront demo: pick a customer, compare three recommenders side by side.
+This is the artifact to link in a resume/portfolio — it makes the offline A/B
+result tangible instead of a table of numbers, including the negative result
+(item-CF loses to popularity) which is the more interesting finding.
 
 Run: streamlit run frontend/streamlit_app.py
 Requires the FastAPI service running (default http://localhost:8000, override
@@ -16,8 +17,9 @@ API_URL = os.environ.get("API_URL", "http://localhost:8000")
 st.set_page_config(page_title="ShelfSense", page_icon="🛍️", layout="wide")
 st.title("🛍️ ShelfSense — retail product recommender")
 st.caption(
-    "Hybrid (collaborative filtering + content-based cold-start) vs. a "
-    "popularity baseline, evaluated as an offline A/B test on held-out purchases."
+    "Three recommenders, same customer, same catalog. Hybrid (category-affinity + "
+    "content-based cold-start) ties the popularity baseline; pure item-based "
+    "collaborative filtering loses to it — see docs/ab_test_results.md for why."
 )
 
 
@@ -51,10 +53,11 @@ except requests.RequestException as e:
 customer_id = st.selectbox("Customer", customers)
 
 if customer_id:
-    col_hybrid, col_pop = st.columns(2)
+    col_hybrid, col_pop, col_cf = st.columns(3)
     for col, model_name, label in [
-        (col_hybrid, "hybrid", "Hybrid (treatment)"),
+        (col_hybrid, "hybrid", "Hybrid (shipped)"),
         (col_pop, "popularity", "Popularity baseline (control)"),
+        (col_cf, "item_cf", "Item-CF (benchmarked, not shipped)"),
     ]:
         with col:
             st.subheader(label)

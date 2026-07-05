@@ -27,16 +27,31 @@ Kaggle CSVs -> build_features.py -> processed parquet -> train.py -> artifacts/
 
 **Modeling approach** (`src/shelfsense/`):
 - `baseline.py` — popularity model (control arm, and cold-start fallback)
-- `collaborative.py` — implicit-feedback ALS (Hu, Koren & Volinsky) for
-  customers with enough purchase history
+- `collaborative.py` — implicit-feedback ALS (Hu, Koren & Volinsky). Benchmarked
+  on every training run but **not used by the shipped hybrid** — see the finding below
+- `affinity.py` — category-affinity popularity: best-sellers within a
+  customer's own favorite product category. What the hybrid actually uses
+  for warm customers, in place of item-based CF
 - `content.py` — TF-IDF similarity over article metadata, used when a
-  customer has too little history for CF to be reliable
-- `hybrid.py` — routes each customer to CF / content / popularity depending
-  on how much interaction history they have (the actual cold-start strategy)
+  customer has too little history for category-affinity to be reliable
+- `hybrid.py` — routes each customer to affinity / content / global popularity
+  depending on how much purchase history they have (the actual cold-start strategy)
 - `evaluate.py` — Recall@K, NDCG@K, and a paired bootstrap significance test
-  used as an **offline A/B test**: hybrid vs. popularity baseline, scored
-  against the same held-out week of real future purchases, with a 95% CI on
-  the uplift (see `docs/ab_test_results.md` after running `train.py`)
+  used as an **offline A/B test**, scored against the same held-out week of
+  real future purchases, with a 95% CI on the uplift (see `docs/ab_test_results.md`
+  after running `train.py`)
+
+**The actual finding** (real H&M data, see `docs/ab_test_results.md` for exact
+numbers): item-based ALS collaborative filtering was implemented and
+benchmarked first, and it *lost* decisively to the popularity baseline —
+fashion repurchase rates are low and the catalog turns over fast, so
+item-level co-purchase patterns are too sparse over a single-week holdout to
+beat "what's trending right now." Category-affinity popularity was built as
+a replacement and statistically **ties** the popularity baseline (95% CI
+includes zero) while still personalizing which items are shown per customer.
+The ALS code stayed in the repo specifically so this comparison is
+reproducible on every training run, rather than quietly deleting the
+approach that didn't work.
 
 ## Setup
 
@@ -57,7 +72,7 @@ See the comment header in that script for the one-time Kaggle API token setup.
 
 ```bash
 python -m shelfsense.build_features   # subsamples + time-splits into data/processed/
-python -m shelfsense.train            # fits all 3 models, runs the offline A/B test,
+python -m shelfsense.train            # fits all models, runs the offline A/B test,
                                        # writes artifacts/ and docs/ab_test_results.md
 ```
 
@@ -66,7 +81,7 @@ python -m shelfsense.train            # fits all 3 models, runs the offline A/B 
 ```bash
 uvicorn app.main:app --reload
 curl http://localhost:8000/health
-curl "http://localhost:8000/recommend/<customer_id>?model=hybrid&k=12"
+curl "http://localhost:8000/recommend/<customer_id>?model=hybrid&k=12"   # or model=popularity / item_cf
 ```
 
 ## 4. Run the storefront demo
@@ -75,8 +90,10 @@ curl "http://localhost:8000/recommend/<customer_id>?model=hybrid&k=12"
 streamlit run frontend/streamlit_app.py
 ```
 
-Shows hybrid vs. popularity recommendations side by side for a sampled
-customer — this is the artifact worth linking from a resume.
+Shows all three recommenders side by side for a sampled customer — hybrid,
+popularity, and item-CF — which makes the negative result (item-CF losing to
+popularity) as visible as the positive one. This is the artifact worth
+linking from a resume.
 
 ## Deployment
 
@@ -90,15 +107,20 @@ pytest
 ```
 
 Unit tests cover ranking metrics, the bootstrap significance test, the
-popularity/content models, and the hybrid routing logic (via fakes — no
-dataset needed to run `pytest`).
+popularity/content/affinity models, and the hybrid routing logic (via fakes
+— no dataset needed to run `pytest`).
 
 ## Talking points for interviews
 
+- **Item-CF lost to popularity, and that's in the repo, not hidden**: the
+  most defensible thing about this project isn't a metric, it's that a
+  negative result (ALS underperforming a trivial baseline) drove an actual
+  architecture change instead of being tuned away or quietly dropped. Most
+  candidates' recommender projects only show the version that "won."
 - **Cold-start**: a pure-CF system has nothing to say about a customer with
   0-2 purchases — often a large share of daily traffic. The hybrid's
-  history-length routing is the actual answer to "how do you handle new
-  users," not an afterthought.
+  history-length routing (category-affinity / content / global popularity)
+  is the actual answer to "how do you handle new users," not an afterthought.
 - **Why an offline A/B test, not just accuracy**: a single Recall@12 number
   invites the question "is that difference real or noise?" The bootstrap CI
   answers it, and is the same technique used to read a live experiment.

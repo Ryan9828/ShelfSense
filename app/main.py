@@ -1,6 +1,7 @@
 """FastAPI serving layer. Loads model artifacts trained by `python -m shelfsense.train`
-and serves recommendations for the hybrid model or the popularity baseline, so the
-frontend demo can show the A/B comparison live.
+and serves recommendations for the hybrid model, the popularity baseline, and the
+benchmarked (but not shipped) item-CF model, so the frontend demo can show the
+offline A/B comparison live.
 """
 import sys
 from contextlib import asynccontextmanager
@@ -22,12 +23,13 @@ _state: dict = {}
 async def lifespan(app: FastAPI):
     _state["popularity"] = joblib.load(config.ARTIFACTS / "popularity.joblib")
     _state["content"] = joblib.load(config.ARTIFACTS / "content.joblib")
-    _state["als"] = joblib.load(config.ARTIFACTS / "als.joblib")
+    _state["affinity"] = joblib.load(config.ARTIFACTS / "affinity.joblib")
+    _state["als"] = joblib.load(config.ARTIFACTS / "als.joblib")  # kept for the item_cf comparison
     _state["train"] = pd.read_parquet(config.DATA_PROCESSED / "transactions_train.parquet")
     _state["articles"] = pd.read_parquet(config.DATA_PROCESSED / "articles.parquet").set_index(
         "article_id"
     )
-    _state["hybrid"] = HybridRecommender(_state["als"], _state["content"], _state["popularity"])
+    _state["hybrid"] = HybridRecommender(_state["affinity"], _state["content"], _state["popularity"])
     yield
     _state.clear()
 
@@ -54,13 +56,16 @@ def sample_customers(n: int = 20) -> list[str]:
 
 @app.get("/recommend/{customer_id}", response_model=RecommendationResponse)
 def recommend(customer_id: str, k: int = config.TOP_K, model: str = "hybrid") -> dict:
+    history = set(_state["train"].loc[_state["train"]["customer_id"] == customer_id, "article_id"])
     if model == "hybrid":
         article_ids = _state["hybrid"].recommend(customer_id, k, _state["train"])
     elif model == "popularity":
-        history = set(_state["train"].loc[_state["train"]["customer_id"] == customer_id, "article_id"])
         article_ids = _state["popularity"].recommend(k, exclude=history)
+    elif model == "item_cf":
+        # benchmarked but not shipped — underperforms popularity, see docs/ab_test_results.md
+        article_ids = [a for a, _ in _state["als"].recommend(customer_id, k)]
     else:
-        raise HTTPException(400, "model must be 'hybrid' or 'popularity'")
+        raise HTTPException(400, "model must be 'hybrid', 'popularity', or 'item_cf'")
     return {"customer_id": customer_id, "model": model, "article_ids": article_ids}
 
 
