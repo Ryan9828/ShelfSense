@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+
+# raw/processed data is large and not portfolio content — download script regenerates it
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# trained model artifacts — regenerate via src/shelfsense/train.py
+artifacts/
+
+# Kaggle credentials must never be committed
+kaggle.json

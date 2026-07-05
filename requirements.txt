@@ -1,0 +1,16 @@
+pandas==2.2.2
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.5.2
+implicit==0.7.2
+joblib==1.4.2
+tqdm==4.66.5
+fastapi==0.115.5
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+streamlit==1.39.0
+pyarrow==17.0.0
+pytest==8.3.3
+
+# dev-only: needed for `scripts/download_data.sh`, not for serving
+kaggle==1.6.17
