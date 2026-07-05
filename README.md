@@ -8,6 +8,10 @@ storefront demo.
 Built on the [H&M Personalized Fashion Recommendations](https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations)
 Kaggle dataset (real anonymized retail transactions).
 
+**[docs/CASE_STUDY.md](docs/CASE_STUDY.md)** — the full retrospective: what
+worked, what didn't, and how each failure was actually diagnosed. Worth
+reading before an interview, since it's the more interesting document.
+
 ## Why this project
 
 Recommenders are a different ML paradigm from regression/classification —
