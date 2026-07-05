@@ -8,14 +8,14 @@ bootstrap (2000 resamples) over per-customer metrics.
 |---|---|---|
 | Popularity (control) | 0.0185 | 0.0107 |
 | Hybrid (affinity + content + popularity) | 0.0155 | 0.0101 |
-| Item-based collaborative filtering (ALS) | 0.0090 | 0.0063 |
+| Item-based collaborative filtering (ALS) | 0.0091 | 0.0055 |
 
 **Hybrid vs. popularity** — Recall@12 mean diff -0.0030, 95% CI
 [-0.0066, +0.0007], p=0.1200.
 NDCG@12 mean diff -0.0006, 95% CI [-0.0030, +0.0017], p=0.5970.
 
-**Item-CF vs. popularity** — Recall@12 mean diff -0.0095, 95% CI
-[-0.0139, -0.0053], p=0.0000.
+**Item-CF vs. popularity** — Recall@12 mean diff -0.0094, 95% CI
+[-0.0139, -0.0051], p=0.0000.
 
 ## Reading this
 

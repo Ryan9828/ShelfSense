@@ -54,3 +54,25 @@ class HybridRecommender:
 
         # fully cold customer: no signal at all, fall back to popularity
         return self.popularity.recommend(k, exclude=exclude)
+
+    def recommend_for_selection(self, liked_article_ids: list[str], k: int) -> list[str]:
+        """Same tiering logic as recommend(), but for a customer we have no stored
+        purchase history for — e.g. a live demo query built from items someone just
+        picked. This *is* the cold-start problem the project is about, just triggered
+        interactively instead of by looking up an existing customer_id."""
+        exclude = set(liked_article_ids)
+
+        if len(liked_article_ids) >= self.min_interactions_for_cf:
+            fav_group = self.affinity.favorite_group(liked_article_ids)
+            recs = self.affinity.recommend_for_group(fav_group, k, exclude=exclude)
+            if len(recs) < k:
+                recs += self.popularity.recommend(k - len(recs), exclude=exclude | set(recs))
+            return recs[:k]
+
+        if liked_article_ids:
+            recs = [a for a, _ in self.content.recommend_similar(liked_article_ids, k, exclude=exclude)]
+            if len(recs) < k:
+                recs += self.popularity.recommend(k - len(recs), exclude=exclude | set(recs))
+            return recs[:k]
+
+        return self.popularity.recommend(k, exclude=exclude)

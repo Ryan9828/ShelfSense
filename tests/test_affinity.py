@@ -40,3 +40,15 @@ def test_excludes_given_articles():
 def test_unknown_customer_returns_empty():
     model = CategoryAffinityModel(recency_days=30).fit(_train(), _articles())
     assert model.recommend("never-seen", k=5) == []
+
+
+def test_favorite_group_from_articles():
+    model = CategoryAffinityModel(recency_days=30).fit(_train(), _articles())
+    assert model.favorite_group(["a1", "a2"]) == "Garment Lower"
+    assert model.favorite_group(["b1"]) == "Accessories"
+    assert model.favorite_group(["does-not-exist"]) is None
+
+
+def test_recommend_for_group_matches_recommend():
+    model = CategoryAffinityModel(recency_days=30).fit(_train(), _articles())
+    assert model.recommend_for_group("Garment Lower", k=5) == model.recommend("c1", k=5)

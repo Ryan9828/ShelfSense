@@ -17,9 +17,11 @@ class CategoryAffinityModel:
         self.recency_days = recency_days
         self.group_popularity: dict[str, list[str]] = {}
         self.customer_fav_group: dict[str, str] = {}
+        self.article_to_group: dict[str, str] = {}
 
     def fit(self, train: pd.DataFrame, articles: pd.DataFrame) -> "CategoryAffinityModel":
         groups = articles[["article_id", "product_group_name"]]
+        self.article_to_group = groups.set_index("article_id")["product_group_name"].to_dict()
 
         cutoff = train["t_dat"].max() - pd.Timedelta(days=self.recency_days)
         recent = train[train["t_dat"] > cutoff].merge(groups, on="article_id", how="left")
@@ -40,6 +42,19 @@ class CategoryAffinityModel:
     def recommend(self, customer_id: str, k: int, exclude: set[str] | None = None) -> list[str]:
         exclude = exclude or set()
         fav_group = self.customer_fav_group.get(customer_id)
-        if not fav_group or fav_group not in self.group_popularity:
+        return self.recommend_for_group(fav_group, k, exclude)
+
+    def recommend_for_group(self, group: str | None, k: int, exclude: set[str] | None = None) -> list[str]:
+        exclude = exclude or set()
+        if not group or group not in self.group_popularity:
             return []
-        return [a for a in self.group_popularity[fav_group] if a not in exclude][:k]
+        return [a for a in self.group_popularity[group] if a not in exclude][:k]
+
+    def favorite_group(self, article_ids: list[str]) -> str | None:
+        """The most common product_group_name among a list of articles — used to
+        infer a "favorite category" for a customer we have no stored history for
+        (e.g. a live query built from items someone just picked in a demo UI)."""
+        groups = [self.article_to_group[a] for a in article_ids if a in self.article_to_group]
+        if not groups:
+            return None
+        return pd.Series(groups).value_counts().idxmax()

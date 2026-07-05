@@ -90,10 +90,17 @@ curl "http://localhost:8000/recommend/<customer_id>?model=hybrid&k=12"   # or mo
 streamlit run frontend/streamlit_app.py
 ```
 
-Shows all three recommenders side by side for a sampled customer — hybrid,
-popularity, and item-CF — which makes the negative result (item-CF losing to
-popularity) as visible as the positive one. This is the artifact worth
-linking from a resume.
+This is a 3-page app (Streamlit auto-discovers `frontend/pages/`):
+- **Home** — the customer-lookup comparison: hybrid vs. popularity vs.
+  item-CF side by side for a sampled existing customer.
+- **📊 Model Comparison** — the offline A/B test results as charts + a data
+  table, pulled live from `/eval-results` (same numbers as
+  `docs/ab_test_results.md`).
+- **🧑 Try It Yourself** — search the real catalog, pick a few items, and get
+  a live recommendation for a customer with *no* stored history. This
+  triggers the cold-start routing interactively (`/recommend/custom`) instead
+  of only being demonstrable by looking up an existing anonymized customer_id
+  — the more convincing artifact for a resume link.
 
 ## Deployment
 
