@@ -1,0 +1,31 @@
+{
+  "k": 12,
+  "n_eval_customers": 3066,
+  "hybrid_recall@12": 0.015502695682476208,
+  "popularity_recall@12": 0.0184661114378387,
+  "item_cf_recall@12": 0.009056831419458879,
+  "hybrid_vs_popularity_recall": {
+    "mean_diff": -0.0029634157553624927,
+    "ci_low": -0.006636562392326878,
+    "ci_high": 0.0007099580195810895,
+    "p_value": 0.12,
+    "n": 3066
+  },
+  "item_cf_vs_popularity_recall": {
+    "mean_diff": -0.009409280018379823,
+    "ci_low": -0.013869212220790008,
+    "ci_high": -0.005080647590432327,
+    "p_value": 0.0,
+    "n": 3066
+  },
+  "hybrid_ndcg@12": 0.010064663901407929,
+  "popularity_ndcg@12": 0.010670691290260327,
+  "item_cf_ndcg@12": 0.005510073634825409,
+  "hybrid_vs_popularity_ndcg": {
+    "mean_diff": -0.0006060273888523997,
+    "ci_low": -0.0030425240148451104,
+    "ci_high": 0.001736907016945077,
+    "p_value": 0.597,
+    "n": 3066
+  }
+}

@@ -4,14 +4,27 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 
-# raw/processed data is large and not portfolio content — download script regenerates it
+# raw data is large (~3.7GB) and not portfolio content — download script regenerates it
 data/raw/*
-data/processed/*
 !data/raw/.gitkeep
-!data/processed/.gitkeep
 
-# trained model artifacts — regenerate via src/shelfsense/train.py
-artifacts/
+# processed data: only the two files the API actually reads at serving time are
+# committed, so the app can be deployed straight from this repo without needing
+# the ~3.7GB raw dataset available at build time. customers.parquet and
+# transactions_test.parquet are training/eval-only and stay out.
+data/processed/*
+!data/processed/.gitkeep
+!data/processed/articles.parquet
+!data/processed/transactions_train.parquet
+
+# trained model artifacts: committed for the same deploy-from-repo reason above.
+# Regenerate locally via `python -m shelfsense.train` if these go stale.
+artifacts/*
+!artifacts/popularity.joblib
+!artifacts/content.joblib
+!artifacts/affinity.joblib
+!artifacts/als.joblib
+!artifacts/eval_results.json
 
 # Kaggle credentials must never be committed
 kaggle.json
