@@ -28,6 +28,8 @@ curl http://localhost:8000/health
    finishes — copy it, you'll need it for the frontend.
 4. Free-tier instances spin down after inactivity; the first request after
    idle can take ~50 seconds to wake back up. Not a bug.
+5. **Environment tab → add `LOAD_ITEM_CF` = `false`.** Not optional — see
+   below, the service OOMs at 512MB without it.
 
 Fly.io and Railway also support "deploy from Dockerfile" with a free tier if
 preferred — same Dockerfile, no changes needed.
@@ -39,6 +41,24 @@ first deploy failed with `Failed to build installable wheels for implicit`.
 Fixed by installing `build-essential` before `pip install` (see
 `Dockerfile`) — verified with a full local `docker build` + `docker run` +
 live API calls against the container before trusting it on Render.
+
+**Known OOM failure and fix**: the deploy right after the build fix crashed
+at runtime with "Ran out of memory (used over 512MB)" — with zero code
+changes from the successful deploy before it, meaning it was already at the
+ceiling and tipped over from run-to-run noise. Profiled RSS growth per
+artifact (not guessed): `transactions_train.parquet` was loaded in full
+(object-dtype strings) when only 2 of its 5 columns are ever used at
+serving time (~272MB for data that should cost ~26MB), and converting to
+`category` dtype *after* a plain pandas read still transiently materializes
+the full string columns first — glibc doesn't return that peak memory to
+the OS afterward, so RSS stays inflated at the peak forever. Fixed by
+reading via pyarrow's `read_dictionary` (never materializes the full
+arrays) plus an explicit `malloc_trim(0)` after each heavy load. Even after
+that fix, `als.joblib` (~65MB, and it's explicitly the
+benchmarked-but-not-shipped model) left too thin a margin — confirmed via
+`docker run --memory=512m` that the same build still OOMs with ALS loaded.
+Hence `LOAD_ITEM_CF=false` above: skips loading it, and the API returns a
+plain 503 (with an explanatory message) for `model=item_cf` instead.
 
 ## 2. Frontend (Streamlit Community Cloud)
 
@@ -63,6 +83,7 @@ live API calls against the container before trusting it on Render.
 | Variable | Used by | Default |
 |---|---|---|
 | `API_URL` | Streamlit frontend | `http://localhost:8000` |
+| `LOAD_ITEM_CF` | API | `true` (set to `false` on Render — see above) |
 
 ## Verifying a live deployment
 
