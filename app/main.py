@@ -3,6 +3,8 @@ and serves recommendations for the hybrid model, the popularity baseline, and th
 benchmarked (but not shipped) item-CF model, so the frontend demo can show the
 offline A/B comparison live.
 """
+import ctypes
+import gc
 import json
 import sys
 from contextlib import asynccontextmanager
@@ -10,6 +12,7 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+import pyarrow.parquet as pq
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -20,16 +23,50 @@ from shelfsense.hybrid import HybridRecommender  # noqa: E402
 _state: dict = {}
 
 
+def _release_freed_memory() -> None:
+    """gc.collect() alone doesn't return freed pages to the OS — glibc's malloc
+    keeps them in its own free list for reuse. On a memory-capped host (Render's
+    512MB free tier) that means a transient peak during startup (e.g. materializing
+    a large column before converting it to a smaller dtype) permanently inflates
+    RSS for the rest of the process's life, even once the Python objects are gone.
+    malloc_trim forces glibc to actually give that memory back."""
+    gc.collect()
+    try:
+        ctypes.CDLL(None).malloc_trim(0)
+    except (OSError, AttributeError):
+        pass  # not glibc (e.g. running this on macOS) — nothing to do
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _state["popularity"] = joblib.load(config.ARTIFACTS / "popularity.joblib")
     _state["content"] = joblib.load(config.ARTIFACTS / "content.joblib")
     _state["affinity"] = joblib.load(config.ARTIFACTS / "affinity.joblib")
-    _state["als"] = joblib.load(config.ARTIFACTS / "als.joblib")  # kept for the item_cf comparison
-    _state["train"] = pd.read_parquet(config.DATA_PROCESSED / "transactions_train.parquet")
-    _state["articles"] = pd.read_parquet(config.DATA_PROCESSED / "articles.parquet").set_index(
-        "article_id"
+    if config.LOAD_ITEM_CF:
+        _state["als"] = joblib.load(config.ARTIFACTS / "als.joblib")
+    _release_freed_memory()
+
+    # Only customer_id/article_id are ever read from `train` at serving time (purchase
+    # history lookups). Reading via pyarrow with read_dictionary + converting straight
+    # to pandas `category` avoids ever materializing the full 1.39M-row object-dtype
+    # string columns (~250MB) that a plain `pd.read_parquet(...).astype("category")`
+    # would transiently hold before conversion — that peak, not the ~26MB steady state,
+    # is what was pushing the container over Render's memory limit.
+    table = pq.read_table(
+        config.DATA_PROCESSED / "transactions_train.parquet",
+        columns=["customer_id", "article_id"],
+        read_dictionary=["customer_id", "article_id"],
     )
+    _state["train"] = table.to_pandas()
+    del table
+    _release_freed_memory()
+
+    _articles_cols = ["article_id", "prod_name", "product_type_name", "colour_group_name", "department_name"]
+    _state["articles"] = pd.read_parquet(
+        config.DATA_PROCESSED / "articles.parquet", columns=_articles_cols
+    ).set_index("article_id")
+    _release_freed_memory()
+
     _state["hybrid"] = HybridRecommender(_state["affinity"], _state["content"], _state["popularity"])
     yield
     _state.clear()
@@ -69,6 +106,12 @@ def recommend(customer_id: str, k: int = config.TOP_K, model: str = "hybrid") ->
         article_ids = _state["popularity"].recommend(k, exclude=history)
     elif model == "item_cf":
         # benchmarked but not shipped — underperforms popularity, see docs/ab_test_results.md
+        if "als" not in _state:
+            raise HTTPException(
+                503,
+                "item_cf comparison is disabled in this deployment to fit the free-tier "
+                "memory budget — see docs/ab_test_results.md for the benchmark numbers.",
+            )
         article_ids = [a for a, _ in _state["als"].recommend(customer_id, k)]
     else:
         raise HTTPException(400, "model must be 'hybrid', 'popularity', or 'item_cf'")

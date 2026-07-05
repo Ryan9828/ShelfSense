@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,3 +29,10 @@ ALS_ITERATIONS = 15
 ALS_ALPHA = 40  # confidence scaling on implicit counts, per Hu/Koren/Volinsky
 
 N_BOOTSTRAP = 2000
+
+# als.joblib is ~65MB in memory and is the single largest artifact loaded at serving
+# time, for a model that's explicitly benchmarked-but-not-shipped (see docs/ab_test_results.md).
+# On a memory-constrained deployment (Render's free tier is 512MB) it's not worth the
+# room. Defaults to loaded (matches local dev, where memory isn't a constraint) —
+# set LOAD_ITEM_CF=false as a Render environment variable to skip it there.
+LOAD_ITEM_CF = os.environ.get("LOAD_ITEM_CF", "true").lower() != "false"

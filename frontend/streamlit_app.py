@@ -61,7 +61,14 @@ if customer_id:
     ]:
         with col:
             st.subheader(label)
-            items = get_recommendations(customer_id, model_name)
+            try:
+                items = get_recommendations(customer_id, model_name)
+            except requests.HTTPError as e:
+                if e.response is not None and e.response.status_code == 503:
+                    st.info(e.response.json().get("detail", "Not available in this deployment."))
+                else:
+                    st.error(f"Request failed: {e}")
+                continue
             if not items:
                 st.write("No recommendations.")
             for item in items:
