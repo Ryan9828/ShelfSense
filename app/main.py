@@ -149,6 +149,23 @@ def search_articles(q: str, limit: int = 20) -> list[dict]:
     ]
 
 
+@app.get("/articles/popular")
+def popular_articles(limit: int = 20) -> list[dict]:
+    """A browsable default list for the 'pick items you like' flow — so there's
+    something to click before typing anything into search."""
+    articles = _state["articles"]
+    article_ids = _state["popularity"].ranked_articles[:limit]
+    return [
+        {
+            "article_id": aid,
+            "prod_name": articles.loc[aid, "prod_name"] if aid in articles.index else aid,
+            "product_type_name": articles.loc[aid, "product_type_name"] if aid in articles.index else "",
+            "colour_group_name": articles.loc[aid, "colour_group_name"] if aid in articles.index else "",
+        }
+        for aid in article_ids
+    ]
+
+
 @app.post("/recommend/custom", response_model=RecommendationResponse)
 def recommend_custom(req: CustomRecommendationRequest) -> dict:
     """Recommendations for a customer with no stored history — e.g. a brand

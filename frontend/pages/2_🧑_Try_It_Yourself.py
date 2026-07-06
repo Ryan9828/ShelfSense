@@ -37,6 +37,22 @@ def search(q: str) -> list[dict]:
     return resp.json()
 
 
+@st.cache_data(ttl=300)
+def popular(limit: int = 15) -> list[dict]:
+    resp = requests.get(f"{API_URL}/articles/popular", params={"limit": limit}, timeout=10)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def render_pickable(items: list[dict]) -> None:
+    for item in items:
+        c1, c2 = st.columns([4, 1])
+        c1.markdown(
+            f"**{item['prod_name']}** — {item['product_type_name']} · {item['colour_group_name']}"
+        )
+        c2.button("Add", key=f"add-{item['article_id']}", on_click=add_pick, args=(item,))
+
+
 col_search, col_picks = st.columns([3, 2])
 
 with col_search:
@@ -45,22 +61,19 @@ with col_search:
         "Search query", value="", placeholder='e.g. "jeans", "dress", "hoodie"',
         label_visibility="collapsed",
     )
-    if len(query) >= 2:
-        try:
+    try:
+        if len(query) >= 2:
             results = search(query)
-        except requests.RequestException as e:
-            st.error(f"Could not reach the API at {API_URL}: {e}")
-            results = []
-        if not results:
-            st.write("No matches.")
-        for item in results:
-            c1, c2 = st.columns([4, 1])
-            c1.markdown(
-                f"**{item['prod_name']}** — {item['product_type_name']} · {item['colour_group_name']}"
-            )
-            c2.button("Add", key=f"add-{item['article_id']}", on_click=add_pick, args=(item,))
-    elif query:
-        st.caption("Keep typing — need at least 2 characters.")
+            if not results:
+                st.write("No matches.")
+            render_pickable(results)
+        elif query:
+            st.caption("Keep typing — need at least 2 characters.")
+        else:
+            st.caption("Trending now — or search above for something specific.")
+            render_pickable(popular())
+    except requests.RequestException as e:
+        st.error(f"Could not reach the API at {API_URL}: {e}")
 
 with col_picks:
     st.subheader(f"Your picks ({len(st.session_state.picks)})")
