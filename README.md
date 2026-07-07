@@ -121,7 +121,7 @@ Unit tests cover ranking metrics, the bootstrap significance test, the
 popularity/content/affinity models, and the hybrid routing logic (via fakes
 — no dataset needed to run `pytest`).
 
-## Talking points for interviews
+## Interesting points
 
 - **Item-CF lost to popularity, and that's in the repo, not hidden**: the
   most defensible thing about this project isn't a metric, it's that a
