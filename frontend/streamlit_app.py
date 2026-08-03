@@ -1,4 +1,5 @@
-"""Storefront demo: pick a customer, compare three recommenders side by side.
+"""ShelfSense storefront demo — entrypoint.
+
 This is the artifact to link in a resume/portfolio — it makes the offline A/B
 result tangible instead of a table of numbers, including the negative result
 (item-CF loses to popularity) which is the more interesting finding.
@@ -6,73 +7,46 @@ result tangible instead of a table of numbers, including the negative result
 Run: streamlit run frontend/streamlit_app.py
 Requires the FastAPI service running (default http://localhost:8000, override
 with the API_URL env var — set this to the deployed API's URL in production).
-"""
-import os
 
-import requests
+Pages live in frontend/views/ and are registered here with st.navigation
+(instead of the auto-discovered pages/ folder) so the sidebar gets proper
+labels + icons. url_path values keep the URLs the old emoji-named pages had.
+Design system: .streamlit/config.toml (theme tokens) + frontend/ui.py (all
+component CSS/HTML).
+"""
+import sys
+from pathlib import Path
+
 import streamlit as st
 
-API_URL = os.environ.get("API_URL", "http://localhost:8000")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import ui
 
 st.set_page_config(page_title="ShelfSense", page_icon="🛍️", layout="wide")
-st.title("🛍️ ShelfSense — retail product recommender")
-st.caption(
-    "Three recommenders, same customer, same catalog. Hybrid (category-affinity + "
-    "content-based cold-start) ties the popularity baseline; pure item-based "
-    "collaborative filtering loses to it — see docs/ab_test_results.md for why."
+ui.apply_theme()
+
+pg = st.navigation(
+    [
+        st.Page("views/home.py", title="Home", icon=":material/home:", default=True),
+        st.Page("views/storefront.py", title="Storefront", icon=":material/storefront:", url_path="Storefront"),
+        st.Page("views/model_comparison.py", title="Model Comparison", icon=":material/monitoring:", url_path="Model_Comparison"),
+        st.Page("views/try_it_yourself.py", title="Try It Yourself", icon=":material/touch_app:", url_path="Try_It_Yourself"),
+    ]
 )
 
-
-@st.cache_data(ttl=60)
-def get_sample_customers() -> list[str]:
-    resp = requests.get(f"{API_URL}/customers/sample", params={"n": 30}, timeout=10)
-    resp.raise_for_status()
-    return resp.json()
-
-
-@st.cache_data(ttl=60)
-def get_recommendations(customer_id: str, model: str, k: int = 12) -> list[dict]:
-    resp = requests.get(
-        f"{API_URL}/recommend/{customer_id}", params={"model": model, "k": k}, timeout=10
+with st.sidebar:
+    st.markdown("**ShelfSense**")
+    st.caption(
+        "A hybrid retail recommender on 1.4M real H&M transactions, with the "
+        "offline A/B test that decided which model shipped — including the one "
+        "that lost."
     )
-    resp.raise_for_status()
-    article_ids = resp.json()["article_ids"]
-    details = []
-    for aid in article_ids:
-        d = requests.get(f"{API_URL}/articles/{aid}", timeout=10)
-        details.append(d.json() if d.ok else {"article_id": aid})
-    return details
+    st.markdown(f"[Source on GitHub]({ui.REPO_URL})")
+    st.divider()
+    st.caption(
+        "The demo API runs on a free tier and sleeps when idle — the first data "
+        "page after a quiet spell can take up to a minute to wake."
+    )
 
-
-try:
-    customers = get_sample_customers()
-except requests.RequestException as e:
-    st.error(f"Could not reach the API at {API_URL}: {e}")
-    st.stop()
-
-customer_id = st.selectbox("Customer", customers)
-
-if customer_id:
-    col_hybrid, col_pop, col_cf = st.columns(3)
-    for col, model_name, label in [
-        (col_hybrid, "hybrid", "Hybrid (shipped)"),
-        (col_pop, "popularity", "Popularity baseline (control)"),
-        (col_cf, "item_cf", "Item-CF (benchmarked, not shipped)"),
-    ]:
-        with col:
-            st.subheader(label)
-            try:
-                items = get_recommendations(customer_id, model_name)
-            except requests.HTTPError as e:
-                if e.response is not None and e.response.status_code == 503:
-                    st.info(e.response.json().get("detail", "Not available in this deployment."))
-                else:
-                    st.error(f"Request failed: {e}")
-                continue
-            if not items:
-                st.write("No recommendations.")
-            for item in items:
-                st.markdown(
-                    f"**{item.get('prod_name', item['article_id'])}**  \n"
-                    f"{item.get('product_type_name', '')} · {item.get('colour_group_name', '')}"
-                )
+pg.run()

@@ -91,10 +91,66 @@ def health() -> dict:
     return {"status": "ok", "models_loaded": bool(_state)}
 
 
+def _article_dict(article_id: str) -> dict:
+    row = _state["articles"].loc[article_id]
+    return {
+        "article_id": article_id,
+        "prod_name": row.get("prod_name"),
+        "product_type_name": row.get("product_type_name"),
+        "department_name": row.get("department_name"),
+        "colour_group_name": row.get("colour_group_name"),
+    }
+
+
 @app.get("/customers/sample")
 def sample_customers(n: int = 20) -> list[str]:
     train = _state["train"]
     return train["customer_id"].drop_duplicates().head(n).tolist()
+
+
+@app.get("/customers/profiles")
+def customer_profiles(n: int = 20, history: int = 8) -> list[dict]:
+    """Sampled customers with enough context for a UI to introduce them by
+    something other than a 64-char hash: how much history each has, what they
+    buy most, and a few of the actual items. Also the only way to judge whether
+    a recommendation is any good — a list of products means nothing without
+    knowing what the customer already bought.
+    """
+    train = _state["train"]
+    articles = _state["articles"]
+    ids = train["customer_id"].drop_duplicates().head(n).tolist()
+    rows = train[train["customer_id"].isin(ids)]
+    # observed=True is load-bearing: customer_id is a categorical over all ~60k
+    # customers, so a default groupby would walk every unused category too.
+    grouped = rows.groupby("customer_id", observed=True)["article_id"].apply(list)
+
+    profiles = []
+    for cid in ids:
+        aids = [str(a) for a in grouped.get(cid, [])]
+        types = articles["product_type_name"].reindex(aids).dropna()
+        top = types.value_counts()
+        # transactions_train.parquet is in chronological order and t_dat isn't
+        # loaded at serving time, so "most recent" is the tail of their rows.
+        recent: list[dict] = []
+        seen: set[str] = set()
+        for aid in reversed(aids):
+            if aid in seen or aid not in articles.index:
+                continue
+            seen.add(aid)
+            recent.append(_article_dict(aid))
+            if len(recent) >= history:
+                break
+        profiles.append(
+            {
+                "customer_id": cid,
+                "n_purchases": len(aids),
+                "n_distinct_articles": len(set(aids)),
+                "top_category": str(top.index[0]) if len(top) else None,
+                "top_category_share": round(float(top.iloc[0] / top.sum()), 3) if len(top) else None,
+                "recent": recent,
+            }
+        )
+    return profiles
 
 
 @app.get("/recommend/{customer_id}", response_model=RecommendationResponse)
@@ -164,6 +220,24 @@ def popular_articles(limit: int = 20) -> list[dict]:
         }
         for aid in article_ids
     ]
+
+
+@app.get("/articles/batch")
+def articles_batch(ids: str) -> list[dict]:
+    """Details for a comma-separated list of article ids, in the order given.
+
+    Declared above /articles/{article_id} so FastAPI doesn't route "batch" into
+    the path param. The storefront draws 12 recommendations for each of three
+    models — without this it made 36 sequential round trips to render one page.
+    """
+    articles = _state["articles"]
+    out = []
+    for aid in (i for i in ids.split(",") if i):
+        if aid in articles.index:
+            out.append(_article_dict(aid))
+        else:
+            out.append({"article_id": aid, "prod_name": aid, "product_type_name": "", "colour_group_name": "", "department_name": ""})
+    return out
 
 
 @app.post("/recommend/custom", response_model=RecommendationResponse)

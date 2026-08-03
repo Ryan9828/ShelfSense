@@ -86,7 +86,14 @@ python -m shelfsense.train            # fits all models, runs the offline A/B te
 uvicorn app.main:app --reload
 curl http://localhost:8000/health
 curl "http://localhost:8000/recommend/<customer_id>?model=hybrid&k=12"   # or model=popularity / item_cf
+curl "http://localhost:8000/customers/profiles?n=5"                     # sampled customers + their history
+curl "http://localhost:8000/articles/batch?ids=0808651003,0554757003"   # many articles in one call
 ```
+
+`/customers/profiles` and `/articles/batch` exist for the frontend: the demo
+introduces customers by their purchase behaviour rather than their 64-char
+hash, and drawing three 12-item recommendation lists used to cost 36
+sequential round trips.
 
 ## 4. Run the storefront demo
 
@@ -94,13 +101,26 @@ curl "http://localhost:8000/recommend/<customer_id>?model=hybrid&k=12"   # or mo
 streamlit run frontend/streamlit_app.py
 ```
 
-This is a 3-page app (Streamlit auto-discovers `frontend/pages/`):
-- **Home** — the customer-lookup comparison: hybrid vs. popularity vs.
-  item-CF side by side for a sampled existing customer.
-- **📊 Model Comparison** — the offline A/B test results as charts + a data
+This is a 4-page app. Pages live in `frontend/views/` and are registered in
+`streamlit_app.py` via `st.navigation`; `frontend/api.py` is the only module
+that talks HTTP, `frontend/ui.py` holds the design system, and
+`frontend/routing.py` mirrors the hybrid's branching rule for display.
+Streamlit-native theme tokens are in `.streamlit/config.toml` — **that file
+must be committed**, or a deployed app falls back to the visitor's system
+theme and renders the light-surface components in dark chrome.
+- **Home** — what the project is, what it's built on, the headline finding,
+  how the hybrid's history-length routing works, what each page shows, and
+  what the demo is not. Makes no API calls, so it loads instantly even while
+  the free-tier API is waking up.
+- **Storefront** — the customer-lookup comparison: hybrid vs. popularity vs.
+  item-CF side by side for a sampled existing customer. Each customer is
+  introduced by their purchase count, favourite category, and recent items,
+  so the recommendations can actually be judged; the lists fold to their top
+  6 and each column reports how much it overlaps the baseline.
+- **Model Comparison** — the offline A/B test results as charts + a data
   table, pulled live from `/eval-results` (same numbers as
   `docs/ab_test_results.md`).
-- **🧑 Try It Yourself** — search the real catalog, pick a few items, and get
+- **Try It Yourself** — search the real catalog, pick a few items, and get
   a live recommendation for a customer with *no* stored history. This
   triggers the cold-start routing interactively (`/recommend/custom`) instead
   of only being demonstrable by looking up an existing anonymized customer_id

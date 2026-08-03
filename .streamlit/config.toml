@@ -1,0 +1,15 @@
+# ShelfSense design system — Streamlit-native theme tokens.
+# Custom fonts, cards, and component styling live in frontend/ui.py (CSS
+# injection), since streamlit==1.39 only supports these base theme keys.
+# Palette: monochrome + blue accent (see frontend/ui.py for the full token set).
+
+[theme]
+base = "light"
+primaryColor = "#2563EB"          # accent / CTA — primary buttons, focus, links
+backgroundColor = "#FAFAFA"       # page background
+secondaryBackgroundColor = "#FFFFFF"  # sidebar, inputs, expanders
+textColor = "#09090B"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
