@@ -16,8 +16,9 @@ gutters, product name over price, zero border radius.
 
 **Why it is not branded as H&M.** This is a ShelfSense demo that happens to
 run on H&M's public dataset, so it uses ShelfSense's own wordmark in that
-visual idiom rather than reproducing another company's logo. The department
-names in the nav are real values from the data's `index_group_name`.
+visual idiom rather than reproducing another company's logo. The nav links are
+inert scenery — the page is a shop's *front* page for one customer, so "Home"
+is the only one that describes what is actually on screen.
 
 **Why there are no photographs.** The Kaggle competition does ship product
 images (~25GB), but this project never downloads them — see
@@ -41,11 +42,11 @@ HM = {
     "ground": "#FFFFFF",
 }
 
-# The catalog's complete `index_group_name` vocabulary — a closed 5-value set
-# in this dataset, ordered by how many articles sit in each. Hardcoded so the
-# shop nav looks like a shop nav regardless of which departments a given set of
-# 12 recommendations happens to touch.
-DEPARTMENTS = ["Ladieswear", "Divided", "Menswear", "Baby/Children", "Sport"]
+# The shop nav. These 12 items are the shop's front page for one customer, not
+# a department listing, so "Home" is the honest label — an underlined
+# "Ladieswear" implied the visitor had browsed into a category, which they
+# hadn't. The rest are inert scenery, present so the bar reads as a shop.
+NAV = ["Home", "New in", "Clothing", "Sale"]
 
 # Line-art garment silhouettes, drawn on a 48x64 (3:4) canvas to match the
 # portrait tile. Stroked rather than filled so they read as fashion line
@@ -136,7 +137,7 @@ def ink_for(hex_colour: str) -> str:
 
 def fmt_price(price) -> str:
     """The dataset's own price, rescaled at build time (see
-    data.attach_mean_price). No currency symbol: the competition data does not
+    data.attach_retail_price). No currency symbol: the competition data does not
     say which currency these are, and inventing one would be the only made-up
     thing on the tile."""
     if price is None:
@@ -167,12 +168,12 @@ def store_css() -> None:
     padding: 14px 18px; border-bottom: 1px solid {HM["rule"]};
 }}
 .hm-brand {{
-    font-weight: 700; font-size: 1.15rem; letter-spacing: -0.02em;
+    font-weight: 700; font-size: 1.35rem; letter-spacing: -0.02em;
     color: {HM["red"]}; font-style: italic; flex: none;
 }}
 .hm-nav {{
     display: flex; gap: 16px; flex-wrap: wrap; margin-left: 4px;
-    font-size: 0.68rem; letter-spacing: 0.11em; text-transform: uppercase;
+    font-size: 0.82rem; letter-spacing: 0.1em; text-transform: uppercase;
     color: {HM["ink"]};
 }}
 .hm-nav span {{ white-space: nowrap; padding-bottom: 2px; }}
@@ -185,15 +186,15 @@ def store_css() -> None:
     padding: 22px 18px 4px 18px;
 }}
 .hm-banner .hm-eyebrow {{
-    font-size: 0.65rem; letter-spacing: 0.16em; text-transform: uppercase;
+    font-size: 0.76rem; letter-spacing: 0.15em; text-transform: uppercase;
     color: {HM["ink_soft"]};
 }}
 .hm-banner h3 {{
-    font-size: 1.32rem; font-weight: 700; letter-spacing: -0.01em;
+    font-size: 1.62rem; font-weight: 700; letter-spacing: -0.01em;
     margin: 4px 0 0 0; padding: 0; color: {HM["ink"]};
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }}
-.hm-banner .hm-sub {{ font-size: 0.8rem; color: {HM["ink_soft"]}; margin-top: 4px; }}
+.hm-banner .hm-sub {{ font-size: 0.94rem; color: {HM["ink_soft"]}; margin-top: 4px; }}
 
 /* --- product grid --------------------------------------------------- */
 /* Explicit column counts rather than auto-fill: there are always 12 tiles, and
@@ -213,26 +214,26 @@ def store_css() -> None:
 .hm-shot svg {{ width: 62%; height: 62%; opacity: 0.62; }}
 .hm-rank {{
     position: absolute; top: 7px; left: 7px;
-    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
     padding: 2px 5px; background: rgba(255,255,255,0.86); color: {HM["ink"]};
     font-variant-numeric: tabular-nums;
 }}
 .hm-flag {{
     position: absolute; bottom: 0; left: 0; right: 0;
     background: {HM["red"]}; color: #fff; text-align: center;
-    font-size: 0.55rem; font-weight: 700; letter-spacing: 0.12em;
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
     text-transform: uppercase; padding: 3px 4px;
 }}
 .hm-meta {{ padding: 8px 2px 0 2px; }}
 .hm-name {{
-    font-size: 0.8rem; font-weight: 400; color: {HM["ink"]}; line-height: 1.35;
+    font-size: 0.96rem; font-weight: 400; color: {HM["ink"]}; line-height: 1.35;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }}
 .hm-type {{
-    font-size: 0.72rem; color: {HM["ink_soft"]}; margin-top: 1px;
+    font-size: 0.86rem; color: {HM["ink_soft"]}; margin-top: 2px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }}
-.hm-price {{ font-size: 0.8rem; font-weight: 700; margin-top: 5px; color: {HM["ink"]}; }}
+.hm-price {{ font-size: 0.96rem; font-weight: 700; margin-top: 5px; color: {HM["ink"]}; }}
 
 /* --- model tabs styled as shop category tabs ------------------------ */
 [data-testid="stTabs"] [data-baseweb="tab-list"] {{
@@ -240,8 +241,8 @@ def store_css() -> None:
 }}
 [data-testid="stTabs"] [data-baseweb="tab"] {{
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
-    font-weight: 600; padding: 10px 18px; color: {HM["ink_soft"]};
+    font-size: 0.85rem; letter-spacing: 0.11em; text-transform: uppercase;
+    font-weight: 600; padding: 12px 20px; color: {HM["ink_soft"]};
 }}
 [data-testid="stTabs"] [aria-selected="true"] {{ color: {HM["ink"]}; }}
 /* pointer-events: none is load-bearing — the highlight is an absolutely
@@ -297,14 +298,9 @@ def store(
     added versus which the popularity baseline would have shown anyway.
     """
     flag_ids = flag_ids or set()
-    # The shop shows its whole department list, with the one these
-    # recommendations actually fall in underlined — a nav that renders only the
-    # departments present would collapse to a single word for most customers.
-    present = [str(i.get("index_group_name") or "").strip() for i in items]
-    active = max(set(present), key=present.count) if any(present) else None
     nav = "".join(
-        f'<span class="{"on" if d == active else ""}">{html.escape(d)}</span>'
-        for d in DEPARTMENTS
+        f'<span class="{"on" if i == 0 else ""}">{html.escape(d)}</span>'
+        for i, d in enumerate(NAV)
     )
 
     tiles = "".join(
