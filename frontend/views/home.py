@@ -35,7 +35,7 @@ st.caption(
 # ------------------------------------------------------------ the headline
 ui.section("The finding", "flask")
 st.markdown(
-    "Item-based collaborative filtering — the textbook answer to "
+    "ALS matrix factorization — the textbook answer to "
     "“build me a recommender” — was built first, and **lost decisively to a "
     "trivial popularity baseline**."
 )
@@ -53,7 +53,7 @@ ui.stat_cards(
             "accent": True,
         },
         {
-            "label": "Item-CF (not shipped)",
+            "label": "ALS (not shipped)",
             "value": "0.0091",
             "sub": "significantly worse, p<0.001 — the negative result",
         },
@@ -62,7 +62,7 @@ ui.stat_cards(
 with st.expander("Why the textbook model lost, and what ships instead"):
     st.markdown(
         "Fashion repurchase rates are low and the catalog turns over fast, so "
-        "item-level co-purchase signal is too sparse over a one-week holdout to "
+        "the user-item interaction matrix is too sparse over a one-week holdout for "
         "beat *what is trending right now*. That is a real result, not a bug.\n\n"
         "So the hybrid ships instead: **category-affinity for customers with "
         "history, content-based similarity for customers without**. It ties the "
@@ -123,7 +123,7 @@ for col, (num, title, body) in zip(
                       "small enough to iterate on a laptop."),
         ("2", "Split", "The final 7 days held out as “future” purchases. Nothing is "
                        "scored against data it trained on."),
-        ("3", "Models", "Popularity, item-based ALS, and the hybrid — trained in one "
+        ("3", "Models", "Popularity, ALS matrix factorization, and the hybrid — trained in one "
                         "run, scored on the same 3,066 customers."),
         ("4", "Significance", "2,000-resample paired bootstrap, giving a 95% CI and a "
                               "p-value on every difference."),
@@ -151,7 +151,7 @@ with st.expander("What this demo is not"):
         "product type instead.\n"
         "- **The API sleeps.** The demo backend runs on a free tier and idles down; "
         "the first data page after a quiet spell can take up to a minute to wake. "
-        "Item-CF is also disabled there — its artifact alone would not fit the "
+        "ALS is also disabled there — its artifact alone would not fit the "
         "512MB budget — so that tab may show a notice instead of products."
     )
 

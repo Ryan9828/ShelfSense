@@ -18,14 +18,14 @@ from ui import COLORS
 MODEL_COLORS = {
     "Popularity": COLORS["teal"],
     "Hybrid": COLORS["accent"],
-    "Item-CF": COLORS["amber"],
+    "ALS": COLORS["amber"],
 }
 MODEL_ORDER = list(MODEL_COLORS.keys())
 
 ui.hero(
     "Offline A/B test results",
     "All three models scored against the same real held-out week of purchases. "
-    "Popularity = control baseline. Hybrid = what's shipped. Item-CF = benchmarked "
+    "Popularity = control baseline. Hybrid = what's shipped. ALS = benchmarked "
     "but not shipped (see verdict below). This is a counterfactual comparison, not "
     "a live experiment — see the note at the bottom.",
 )
@@ -47,7 +47,7 @@ metrics_df = pd.DataFrame(
     [
         {"Model": "Popularity", "Recall@k": results[f"popularity_recall@{k}"], "NDCG@k": results[f"popularity_ndcg@{k}"]},
         {"Model": "Hybrid", "Recall@k": results[f"hybrid_recall@{k}"], "NDCG@k": results[f"hybrid_ndcg@{k}"]},
-        {"Model": "Item-CF", "Recall@k": results[f"item_cf_recall@{k}"], "NDCG@k": results[f"item_cf_ndcg@{k}"]},
+        {"Model": "ALS", "Recall@k": results[f"item_cf_recall@{k}"], "NDCG@k": results[f"item_cf_ndcg@{k}"]},
     ]
 )
 
@@ -131,7 +131,7 @@ st.caption(
 VERDICT_BADGE = {"ties": "control", "beats": "shipped", "loses to": "bench"}
 for model, comp in [
     ("Hybrid", results["hybrid_vs_popularity_recall"]),
-    ("Item-CF", results["item_cf_vs_popularity_recall"]),
+    ("ALS", results["item_cf_vs_popularity_recall"]),
 ]:
     verdict = (
         "ties"

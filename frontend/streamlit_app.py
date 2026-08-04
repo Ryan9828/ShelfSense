@@ -2,7 +2,7 @@
 
 This is the artifact to link in a resume/portfolio — it makes the offline A/B
 result tangible instead of a table of numbers, including the negative result
-(item-CF loses to popularity) which is the more interesting finding.
+(ALS loses to popularity) which is the more interesting finding.
 
 Run: streamlit run frontend/streamlit_app.py
 Requires the FastAPI service running (default http://localhost:8000, override

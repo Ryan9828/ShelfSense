@@ -5,7 +5,7 @@ has nothing sensible to say to a customer with 0-1 purchases, or (as the
 benchmark in train.py shows) wastes its best signal on customers where it
 doesn't actually help.
 
-Warm customers use category-affinity popularity, not item-based collaborative
+Warm customers use category-affinity popularity, not latent-factor collaborative
 filtering — see affinity.py for why: ALS was benchmarked against it and lost.
 """
 import pandas as pd

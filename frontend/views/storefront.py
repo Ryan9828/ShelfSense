@@ -21,7 +21,7 @@ from routing import routing_branch
 MODELS = [
     ("hybrid", "Hybrid", "Shipped", "shipped"),
     ("popularity", "Popularity", "Control", "control"),
-    ("item_cf", "Item-CF", "Not shipped", "bench"),
+    ("item_cf", "ALS", "Not shipped", "bench"),
 ]
 FOLD = 6  # cards per column in the comparison before the "show all" toggle
 K = 12  # always fetch 12 — the rank the offline metrics are measured at

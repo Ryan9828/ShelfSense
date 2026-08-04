@@ -1,6 +1,6 @@
 """FastAPI serving layer. Loads model artifacts trained by `python -m shelfsense.train`
 and serves recommendations for the hybrid model, the popularity baseline, and the
-benchmarked (but not shipped) item-CF model, so the frontend demo can show the
+benchmarked (but not shipped) ALS model, so the frontend demo can show the
 offline A/B comparison live.
 """
 import ctypes

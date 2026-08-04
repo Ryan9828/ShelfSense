@@ -35,7 +35,7 @@ Kaggle CSVs -> build_features.py -> processed parquet -> train.py -> artifacts/
   on every training run but **not used by the shipped hybrid** — see the finding below
 - `affinity.py` — category-affinity popularity: best-sellers within a
   customer's own favorite product category. What the hybrid actually uses
-  for warm customers, in place of item-based CF
+  for warm customers, in place of latent-factor CF
 - `content.py` — TF-IDF similarity over article metadata, used when a
   customer has too little history for category-affinity to be reliable
 - `hybrid.py` — routes each customer to affinity / content / global popularity
@@ -46,11 +46,12 @@ Kaggle CSVs -> build_features.py -> processed parquet -> train.py -> artifacts/
   after running `train.py`)
 
 **The actual finding** (real H&M data, see `docs/ab_test_results.md` for exact
-numbers): item-based ALS collaborative filtering was implemented and
+numbers): ALS matrix factorization — implicit-feedback collaborative
+filtering, the latent-factor kind — was implemented and
 benchmarked first, and it *lost* decisively to the popularity baseline —
 fashion repurchase rates are low and the catalog turns over fast, so
-item-level co-purchase patterns are too sparse over a single-week holdout to
-beat "what's trending right now." Category-affinity popularity was built as
+the user-item interaction matrix is too sparse over a single-week holdout for the
+learned factors to beat "what's trending right now." Category-affinity popularity was built as
 a replacement and statistically **ties** the popularity baseline (95% CI
 includes zero) while still personalizing which items are shown per customer.
 The ALS code stayed in the repo specifically so this comparison is
@@ -153,7 +154,7 @@ popularity/content/affinity models, and the hybrid routing logic (via fakes
 
 ## Interesting points
 
-- **Item-CF lost to popularity, and that's in the repo, not hidden**: the
+- **ALS lost to popularity, and that's in the repo, not hidden**: the
   most defensible thing about this project isn't a metric, it's that a
   negative result (ALS underperforming a trivial baseline) drove an actual
   architecture change instead of being tuned away or quietly dropped. Most

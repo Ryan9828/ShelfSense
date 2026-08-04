@@ -37,7 +37,7 @@ deployed, clickable end product — not just a notebook.
 | Warm-customer personalization | **Category-affinity popularity** — best-sellers within a customer's own favorite product category |
 | Cold-start (1-2 purchases) | TF-IDF content-based similarity to what they've already bought |
 | Fully cold (0 purchases) | Falls back to global popularity |
-| Benchmarked, not shipped | Item-based collaborative filtering (ALS) |
+| Benchmarked, not shipped | ALS matrix factorization (latent-factor CF) |
 
 Evaluation: Recall@12 / NDCG@12 against a real held-out week of purchases,
 with a paired bootstrap (2,000 resamples) giving a 95% CI on every model
@@ -50,7 +50,7 @@ live traffic to split.
 |---|---|---|---|
 | Popularity (control) | 0.0185 | 0.0107 | — |
 | **Hybrid (shipped)** | 0.0155 | 0.0101 | **ties** — 95% CI [-0.0066, +0.0007], p=0.12 |
-| Item-CF / ALS (benchmarked) | 0.0091 | 0.0055 | **loses** — 95% CI [-0.0139, -0.0051], p<0.001 |
+| ALS matrix factorization (benchmarked) | 0.0091 | 0.0055 | **loses** — 95% CI [-0.0139, -0.0051], p<0.001 |
 
 The headline number is not "hybrid wins" — it's that a properly-run
 statistical test told the truth about two different personalization
@@ -61,9 +61,9 @@ strategies, and the codebase reflects that honestly instead of hiding it.
 - **Treating the offline A/B test as load-bearing, not decorative.** Every
   model comparison in this project goes through the same paired-bootstrap
   function (`evaluate.bootstrap_paired_diff`). That discipline is what
-  caught the item-CF failure instead of a single point-estimate metric
+  caught the ALS failure instead of a single point-estimate metric
   quietly shipping a worse model.
-- **Category-affinity over item-level CF.** Once item-CF's failure was
+- **Category-affinity over latent-factor CF.** Once ALS's failure was
   diagnosed (see below), recommending best-sellers within a customer's own
   favorite category — a coarser, category-level signal — statistically tied
   the popularity baseline instead of losing to it, while still tailoring
@@ -85,11 +85,11 @@ strategies, and the codebase reflects that honestly instead of hiding it.
 
 ## What didn't work (and how each was actually diagnosed)
 
-**1. Item-based collaborative filtering lost to a popularity baseline.**
+**1. ALS matrix factorization lost to a popularity baseline.**
 First hybrid design routed warm customers straight to ALS. On real data:
 Recall@12 0.0090 vs. popularity's 0.0185 — worse by roughly half, with a
 95% CI nowhere near zero. Root cause, not a bug: fashion repurchase rates
-are low and the catalog turns over fast, so item-level co-purchase patterns
+are low and the catalog turns over fast, so the user-item interaction matrix
 are too sparse over a single-week holdout to compete with "what's trending
 right now." Verified this wasn't just a naive-blend artifact by
 implementing a proper weighted score blend (ALS score + popularity score,

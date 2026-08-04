@@ -1,7 +1,7 @@
 """Entry point: python -m shelfsense.train
 
 Fits all models on the processed train split, runs the offline A/B
-comparison (hybrid vs. popularity baseline, plus item-CF as a benchmarked
+comparison (hybrid vs. popularity baseline, plus ALS as a benchmarked
 alternative) against the held-out week, saves model artifacts for serving,
 and writes the results to docs/ab_test_results.md.
 """
@@ -98,7 +98,7 @@ def _write_report(results: dict) -> None:
     hp = results["hybrid_vs_popularity_recall"]
     cp = results["item_cf_vs_popularity_recall"]
     hn = results["hybrid_vs_popularity_ndcg"]
-    report = f"""# Offline A/B Test: Hybrid vs. Popularity Baseline (and Item-CF, benchmarked)
+    report = f"""# Offline A/B Test: Hybrid vs. Popularity Baseline (and ALS, benchmarked)
 
 Evaluated on {results['n_eval_customers']:,} customers with at least one
 purchase in the held-out {config.HOLDOUT_DAYS}-day window, using a paired
@@ -108,13 +108,13 @@ bootstrap ({config.N_BOOTSTRAP} resamples) over per-customer metrics.
 |---|---|---|
 | Popularity (control) | {results[f'popularity_recall@{k}']:.4f} | {results[f'popularity_ndcg@{k}']:.4f} |
 | Hybrid (affinity + content + popularity) | {results[f'hybrid_recall@{k}']:.4f} | {results[f'hybrid_ndcg@{k}']:.4f} |
-| Item-based collaborative filtering (ALS) | {results[f'item_cf_recall@{k}']:.4f} | {results[f'item_cf_ndcg@{k}']:.4f} |
+| ALS matrix factorization (latent-factor CF) | {results[f'item_cf_recall@{k}']:.4f} | {results[f'item_cf_ndcg@{k}']:.4f} |
 
 **Hybrid vs. popularity** — Recall@{k} mean diff {hp['mean_diff']:+.4f}, 95% CI
 [{hp['ci_low']:+.4f}, {hp['ci_high']:+.4f}], p={hp['p_value']:.4f}.
 NDCG@{k} mean diff {hn['mean_diff']:+.4f}, 95% CI [{hn['ci_low']:+.4f}, {hn['ci_high']:+.4f}], p={hn['p_value']:.4f}.
 
-**Item-CF vs. popularity** — Recall@{k} mean diff {cp['mean_diff']:+.4f}, 95% CI
+**ALS vs. popularity** — Recall@{k} mean diff {cp['mean_diff']:+.4f}, 95% CI
 [{cp['ci_low']:+.4f}, {cp['ci_high']:+.4f}], p={cp['p_value']:.4f}.
 
 ## Reading this
@@ -126,12 +126,14 @@ future purchases, so it can't capture things a real A/B test would (novelty
 effects, display position bias, purchase behavior changing in response to
 what's shown).
 
-**Why item-CF isn't what ships**: pure item-based ALS collaborative
-filtering was implemented and benchmarked first — see the row above. It
-significantly *underperforms* the popularity baseline here (this is a real,
-reproducible finding, not a bug: fashion repurchase rates are low and the
-catalog turns over fast, so item-level co-purchase patterns are too sparse
-over a single-week holdout to beat "what's trending right now"). Rather than
+**Why ALS isn't what ships**: implicit-feedback collaborative filtering via
+ALS matrix factorization (Hu, Koren & Volinsky) — a latent-factor model, not
+a neighbourhood one — was implemented and benchmarked first; see the row
+above. It significantly *underperforms* the popularity baseline here (this is
+a real, reproducible finding, not a bug: fashion repurchase rates are low and
+the catalog turns over fast, so the user-item interaction matrix is too
+sparse over a single-week holdout for the learned factors to beat "what's
+trending right now"). Rather than
 ship a personalization layer that's worse than doing nothing, the hybrid
 uses category-affinity popularity for warm customers instead — best-sellers
 within *their own* favorite product category — which ties the popularity
