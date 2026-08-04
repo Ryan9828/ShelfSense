@@ -30,10 +30,9 @@ shop.store_css()
 
 ui.hero(
     "Compare the recommenders",
-    "Three models, the same customer, the same catalog. The shop below is "
-    "merchandised live from whichever model you select — switch the tab and "
-    "the storefront re-stocks. Underneath is the same output as the offline "
-    "A/B test sees it.",
+    "Pick a customer. The shop below is stocked with the 12 products one "
+    "algorithm chose for them — switch tabs to hand the job to a different one "
+    "and watch the shop re-stock.",
 )
 
 try:
@@ -91,17 +90,10 @@ pop_items = results["popularity"]
 pop_ids = {i["article_id"] for i in pop_items} if isinstance(pop_items, list) else set()
 
 # ---------------------------------------------------------------- the shop
-ui.callout(
-    f"<strong>What you're looking at:</strong> a mock shop front for "
-    f"<strong>{shopper}</strong>, stocked with the "
-    f"<strong>{K} items</strong> the selected model picked for them out of a "
-    "75,159-item catalog. Each tab is a different model making that choice — "
-    "<strong>switch tabs and the shop re-stocks</strong>. Popularity shows the "
-    "same {K} items to every customer in the store, so anything tagged "
-    f"<em>picked for you</em> in the other tabs is an item personalization put "
-    "there and the baseline would not have. Twelve is the shelf size H&amp;M's "
-    "own competition scores at (MAP@12).".replace("{K}", str(K)),
-    icon="pointer",
+st.caption(
+    f"Each tab is a different algorithm choosing {K} products for **{shopper}** "
+    f"out of 75,159. **Popularity** shows the same {K} to everyone, so a "
+    "**picked for you** tag marks an item personalization added."
 )
 
 tabs = st.tabs([f"{label} · {badge_text}" for _, label, badge_text, _ in MODELS])
@@ -135,23 +127,10 @@ for tab, (model, label, _, _) in zip(tabs, MODELS):
             flag_ids=flags,
         )
 
-ui.callout(
-    "<strong>Why there are no product photos.</strong> The H&amp;M Kaggle "
-    "competition does ship product images — about 25GB of them — but this "
-    "project never downloads that archive: none of the three models look at "
-    "pixels, so it would be 25GB of build weight for nothing "
-    "(<code>scripts/download_data.sh</code> pulls the three CSVs only). Rather "
-    "than fill the gap with stock photos of clothes that aren't these clothes, "
-    "each tile is drawn from the article's own record — the block colour is its "
-    "real <code>colour_group_name</code>, and the silhouette is picked from its "
-    "<code>product_type_name</code>, so a dress draws as a dress. "
-    "<strong>Prices are real too:</strong> the dataset's <code>price</code> is "
-    "normalized, and rescaling it recovers the shelf prices behind it — 77.9% "
-    "of all 1.39M rows land exactly on a .99. No currency symbol, because the "
-    "competition never says which currency these are, and that would be the "
-    "only invented thing on the tile.",
-    kind="amber",
-    icon="info",
+st.caption(
+    "**No product photos** — the dataset's image archive is 25GB, too big for a "
+    "free-tier deploy, and none of the models use pixels anyway. Each tile shows "
+    "the item's real colour and product type instead. Prices are real too."
 )
 
 # ------------------------------------------------------- why they see this
@@ -225,14 +204,10 @@ for col, (model, label, badge_text, badge_kind) in zip(st.columns(3, gap="medium
                 "popularity baseline — the rest is what personalization actually changed."
             )
 
-ui.callout(
-    f"<strong>How to read this:</strong> the hybrid sends this customer down the "
-    f"<strong>{branch['name'].lower()}</strong> branch because they have "
-    f"{'no purchase history' if not n_purchases else f'{n_purchases} purchases on record'}. "
-    "Popularity shows the same window display to everyone, so the overlap count is a "
-    "direct read on how much personalization is happening at all. Whether that changes "
-    "what people buy is the <a href='Model_Comparison'>Model Comparison</a> page.",
-    icon="info",
+st.caption(
+    "The overlap count is a direct read on how much personalization is happening "
+    "at all. Whether it changes what people buy is the "
+    "[Model Comparison](Model_Comparison) page."
 )
 
 ui.footer()
