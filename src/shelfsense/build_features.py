@@ -28,6 +28,8 @@ def main() -> None:
         f"{len(kept_customers):,} customers / {len(kept_articles):,} articles"
     )
 
+    articles = data.attach_retail_price(articles, train)
+
     articles.to_parquet(config.DATA_PROCESSED / "articles.parquet", index=False)
     customers.to_parquet(config.DATA_PROCESSED / "customers.parquet", index=False)
     train.to_parquet(config.DATA_PROCESSED / "transactions_train.parquet", index=False)

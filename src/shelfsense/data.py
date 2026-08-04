@@ -77,3 +77,33 @@ def build_interaction_matrix(train: pd.DataFrame, idx: IndexMaps) -> sparse.csr_
 def customer_test_baskets(test: pd.DataFrame) -> dict:
     """customer_id -> set of article_ids actually purchased in the holdout window."""
     return test.groupby("customer_id")["article_id"].apply(set).to_dict()
+
+
+def attach_retail_price(articles: pd.DataFrame, train: pd.DataFrame) -> pd.DataFrame:
+    """Add a `retail_price` column: each article's full, pre-markdown price, in
+    the currency the dataset's normalized `price` was derived from.
+
+    Two conversions are happening here.
+
+    *Scale.* H&M's published `price` is normalized; multiplying by
+    config.PRICE_SCALE recovers the retail prices behind it. Across all 1.39M
+    training rows the rescaled values land on a .99 ending 77.9% of the time,
+    with 9.99 / 19.99 / 14.99 / 29.99 the modal values — which is what makes
+    the factor credible rather than merely convenient.
+
+    *Aggregate.* An article sells at several prices over the training window
+    (markdowns, channel differences), so the per-article maximum is taken as
+    the list price. That is both the number a shop actually puts on the tile
+    and the cleanest signal: 91.6% of maxima end in .99, against 73.6% of
+    medians and 25.4% of means, i.e. the mean mostly reports a markdown blend
+    that was never a real shelf price.
+
+    Nothing in the modeling uses price — this exists so the storefront demo can
+    show a real one instead of inventing it. Computed at build time because
+    aggregating the 1.39M-row price column at every API boot cost ~50MB of peak
+    RSS on a host with a 512MB ceiling, for a result that never changes.
+    """
+    retail = (
+        train.groupby("article_id", observed=True)["price"].max().mul(config.PRICE_SCALE).round(2)
+    )
+    return articles.assign(retail_price=articles["article_id"].map(retail))

@@ -28,6 +28,20 @@ ui.pills(
     ]
 )
 
+ui.callout(
+    "<strong>What the models actually do:</strong> given one customer, rank a "
+    "<strong>75,159-item catalog</strong> and return the "
+    "<strong>12 items</strong> that customer is most likely to buy next. Twelve "
+    "because that is what H&amp;M's own competition scores (MAP@12) — and, "
+    "conveniently, about one screen of a storefront. So every page here is "
+    "about the same question: <em>which 12 things go on the front page of the "
+    "shop for this person, and does the choice actually matter?</em> The "
+    "<a href='Storefront'>Storefront</a> page shows those 12 merchandised as a "
+    "real shop would display them; <a href='Model_Comparison'>Model "
+    "Comparison</a> scores them against what the customer really bought next.",
+    icon="target",
+)
+
 # ------------------------------------------------------------ the headline
 ui.section("The finding", "flask")
 st.markdown(

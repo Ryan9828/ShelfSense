@@ -23,6 +23,11 @@ MIN_INTERACTIONS_FOR_CF = 3
 
 TOP_K = 12  # H&M's own competition metric is MAP@12 — keep eval comparable
 
+# H&M's published `price` column is normalized; multiplying by this recovers the
+# retail prices it came from (77.9% of the 1.39M training rows land exactly on a
+# .99, modal values 9.99 / 19.99 / 14.99 / 29.99). Display only — no model uses price.
+PRICE_SCALE = 590
+
 ALS_FACTORS = 64
 ALS_REGULARIZATION = 0.05
 ALS_ITERATIONS = 15

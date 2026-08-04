@@ -112,11 +112,21 @@ theme and renders the light-surface components in dark chrome.
   how the hybrid's history-length routing works, what each page shows, and
   what the demo is not. Makes no API calls, so it loads instantly even while
   the free-tier API is waking up.
-- **Storefront** — the customer-lookup comparison: hybrid vs. popularity vs.
-  item-CF side by side for a sampled existing customer. Each customer is
-  introduced by their purchase count, favourite category, and recent items,
-  so the recommendations can actually be judged; the lists fold to their top
-  6 and each column reports how much it overlaps the baseline.
+- **Storefront** — the same three models in two registers. The top half
+  merchandises the selected model's 12 recommendations as an actual shop page
+  (`frontend/storefront_ui.py`); switching the tab re-stocks the store from a
+  different model, and items the popularity baseline would *not* have shown
+  are tagged, so personalization is visible rather than asserted. The bottom
+  half is the analyst view: the customer's purchase count, favourite category
+  and recent items, then all three lists side by side folded to their top 6,
+  each reporting how much it overlaps the baseline.
+
+  The shop has no product photography — the Kaggle competition ships images
+  but `scripts/download_data.sh` never downloads them, so each tile draws the
+  garment's real `colour_group_name` as a colour field with a silhouette
+  picked from its `product_group_name` / `product_type_name`. Prices are the
+  dataset's own `price` rescaled by `config.PRICE_SCALE` (see
+  `data.attach_retail_price`). Every value on a tile is real data.
 - **Model Comparison** — the offline A/B test results as charts + a data
   table, pulled live from `/eval-results` (same numbers as
   `docs/ab_test_results.md`).

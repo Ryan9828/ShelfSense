@@ -61,10 +61,32 @@ async def lifespan(app: FastAPI):
     del table
     _release_freed_memory()
 
-    _articles_cols = ["article_id", "prod_name", "product_type_name", "colour_group_name", "department_name"]
-    _state["articles"] = pd.read_parquet(
-        config.DATA_PROCESSED / "articles.parquet", columns=_articles_cols
-    ).set_index("article_id")
+    # The storefront view needs three more fields than the models do:
+    # product_group_name (garment silhouette), index_group_name (department),
+    # and retail_price. All three are cheap here — the first two are 12- and
+    # 5-value categoricals, and retail_price is precomputed at build time by
+    # data.attach_retail_price rather than aggregated from the 1.39M-row price
+    # column at boot, which cost ~50MB of peak RSS for a result that never
+    # changes.
+    #
+    # read_dictionary on the low-cardinality string columns matters as much as
+    # the column list does: read as plain object dtype these cost ~18MB of
+    # retained Python strings, and dictionary-encoding them makes that ~0.
+    _articles_cols = [
+        "article_id", "prod_name", "product_type_name", "colour_group_name",
+        "department_name", "product_group_name", "index_group_name", "retail_price",
+    ]
+    _articles_dict_cols = [
+        "product_type_name", "colour_group_name", "department_name",
+        "product_group_name", "index_group_name",
+    ]
+    articles_table = pq.read_table(
+        config.DATA_PROCESSED / "articles.parquet",
+        columns=_articles_cols,
+        read_dictionary=_articles_dict_cols,
+    )
+    _state["articles"] = articles_table.to_pandas().set_index("article_id")
+    del articles_table
     _release_freed_memory()
 
     _state["hybrid"] = HybridRecommender(_state["affinity"], _state["content"], _state["popularity"])
@@ -91,14 +113,34 @@ def health() -> dict:
     return {"status": "ok", "models_loaded": bool(_state)}
 
 
+def _unknown_article(article_id: str) -> dict:
+    """Same shape as _article_dict for an id not in the catalog, so callers
+    never have to branch on missing keys."""
+    return {
+        "article_id": article_id,
+        "prod_name": article_id,
+        "product_type_name": "",
+        "product_group_name": "",
+        "index_group_name": "",
+        "department_name": "",
+        "colour_group_name": "",
+        "price": None,
+    }
+
+
 def _article_dict(article_id: str) -> dict:
     row = _state["articles"].loc[article_id]
+    price = row.get("retail_price")
     return {
         "article_id": article_id,
         "prod_name": row.get("prod_name"),
         "product_type_name": row.get("product_type_name"),
+        "product_group_name": row.get("product_group_name"),
+        "index_group_name": row.get("index_group_name"),
         "department_name": row.get("department_name"),
         "colour_group_name": row.get("colour_group_name"),
+        # None for an article never sold in the training window
+        "price": None if price is None or pd.isna(price) else float(price),
     }
 
 
@@ -193,16 +235,7 @@ def search_articles(q: str, limit: int = 20) -> list[dict]:
         articles["prod_name"].str.contains(q, case=False, na=False)
         | articles["product_type_name"].str.contains(q, case=False, na=False)
     )
-    matches = articles[mask].head(limit)
-    return [
-        {
-            "article_id": aid,
-            "prod_name": row.get("prod_name"),
-            "product_type_name": row.get("product_type_name"),
-            "colour_group_name": row.get("colour_group_name"),
-        }
-        for aid, row in matches.iterrows()
-    ]
+    return [_article_dict(aid) for aid in articles[mask].head(limit).index]
 
 
 @app.get("/articles/popular")
@@ -210,15 +243,9 @@ def popular_articles(limit: int = 20) -> list[dict]:
     """A browsable default list for the 'pick items you like' flow — so there's
     something to click before typing anything into search."""
     articles = _state["articles"]
-    article_ids = _state["popularity"].ranked_articles[:limit]
     return [
-        {
-            "article_id": aid,
-            "prod_name": articles.loc[aid, "prod_name"] if aid in articles.index else aid,
-            "product_type_name": articles.loc[aid, "product_type_name"] if aid in articles.index else "",
-            "colour_group_name": articles.loc[aid, "colour_group_name"] if aid in articles.index else "",
-        }
-        for aid in article_ids
+        _article_dict(aid) if aid in articles.index else _unknown_article(aid)
+        for aid in _state["popularity"].ranked_articles[:limit]
     ]
 
 
@@ -231,13 +258,10 @@ def articles_batch(ids: str) -> list[dict]:
     models — without this it made 36 sequential round trips to render one page.
     """
     articles = _state["articles"]
-    out = []
-    for aid in (i for i in ids.split(",") if i):
-        if aid in articles.index:
-            out.append(_article_dict(aid))
-        else:
-            out.append({"article_id": aid, "prod_name": aid, "product_type_name": "", "colour_group_name": "", "department_name": ""})
-    return out
+    return [
+        _article_dict(aid) if aid in articles.index else _unknown_article(aid)
+        for aid in (i for i in ids.split(",") if i)
+    ]
 
 
 @app.post("/recommend/custom", response_model=RecommendationResponse)
